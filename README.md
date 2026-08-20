@@ -8,6 +8,10 @@
 
 将图片转换为**可手工制作的拼豆图纸**：一个格子 = 一颗拼豆，所有颜色来自真实拼豆色板（Perler / Artkal / Hama），可导出 PNG / PDF 图纸 / CSV。内置画笔微调、回退、可折叠侧边栏与历史记录管理。
 
+
+
+<img width="1910" height="1029" alt="PixPin_2026-08-21_00-30-18" src="https://github.com/user-attachments/assets/708d48a5-1c4b-48fa-a2b7-e9f19b0b5a8c" />
+
 ---
 
 ## ✨ 功能特性
@@ -58,11 +62,8 @@ npm install
 # 2. 配置环境变量（可选，见 .env.example）
 cp .env.example .env
 
-# 3. 启动开发服务器（热重载）
-npm run dev
-
-# 4. 或启动生产服务器
-npm start
+# 3. 启动
+node server.js
 ```
 
 启动后访问 **http://localhost:3000**
