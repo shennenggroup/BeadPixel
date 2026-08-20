@@ -1,0 +1,1 @@
+# 保留运行时数据目录（history.json 由程序在运行时生成，已被 .gitignore 忽略）

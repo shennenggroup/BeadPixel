@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeadPixel - 拼豆像素化工具</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+</head>
+<body>
+  <!-- 顶部栏（仅品牌标识） -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <img class="logo" src="images/logo.png" alt="BeadPixel">
+      <span class="brand-text">BeadPixel</span>
+      <span class="brand-tag">图片 → 拼豆图纸</span>
+    </div>
+    <div class="nav-steps">
+      <span class="step-dot active" id="stepUpload">1 上传</span>
+      <span class="step-arrow">›</span>
+      <span class="step-dot" id="stepPreview">2 生成</span>
+      <span class="step-arrow">›</span>
+      <span class="step-dot" id="stepExport">3 导出</span>
+    </div>
+  </nav>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <!-- 上传区域 -->
+    <section id="upload-section" class="section active">
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon-ring">
+          <div class="upload-icon">📷</div>
+        </div>
+        <h2>把图片变成拼豆图纸</h2>
+        <p>拖拽图片到此处，或点击选择文件</p>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" hidden>
+        <button class="btn btn-primary" id="selectFileBtn">选择图片</button>
+        <p class="upload-hint">支持 JPG、PNG、WebP 格式，最大 10MB</p>
+      </div>
+      <div class="upload-features">
+        <div class="feature-card">
+          <div class="feature-icon">🧮</div>
+          <div class="feature-title">严格网格</div>
+          <div class="feature-desc">64×64 就是 4096 颗拼豆</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <div class="feature-title">真实色板</div>
+          <div class="feature-desc">Perler / Artkal / Hama</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">✨</div>
+          <div class="feature-title">细节保护</div>
+          <div class="feature-desc">轮廓与五官不丢失</div>
+        </div>
+      </div>
+      <div id="uploadProgress" class="progress-bar hidden">
+        <div class="progress-fill"></div>
+        <span class="progress-text">上传中...</span>
+      </div>
+    </section>
+
+    <!-- 预览区域 -->
+    <section id="preview-section" class="section hidden">
+      <div class="preview-toolbar">
+        <button class="btn btn-ghost btn-small" id="backToUploadBtn">← 重新选择图片</button>
+        <div class="toolbar-right">
+          <button class="btn btn-ghost btn-small" id="undoBtn" disabled title="撤销上一次画笔修改">↶ 回退</button>
+          <button class="btn btn-ghost btn-small" id="sideToggleBtn" title="展开/收起右侧侧边栏">› 收起侧栏</button>
+        </div>
+      </div>
+
+      <div class="preview-layout">
+        <!-- 主区域：拼豆结果 -->
+        <div class="preview-main">
+          <div class="preview-panel">
+            <h3>拼豆结果</h3>
+            <div class="canvas-wrapper">
+              <canvas id="pixelCanvas"></canvas>
+            </div>
+            <div class="canvas-controls">
+              <!-- 视图模式 -->
+              <div class="view-modes">
+                <button class="btn btn-small view-btn active" data-view="bead" title="真实拼豆视觉效果">拼豆模式</button>
+                <button class="btn btn-small view-btn" data-view="pixel" title="纯色像素图">图片模式</button>
+                <button class="btn btn-small view-btn" data-view="grid" title="网格 + 参考线">网格模式</button>
+                <button class="btn btn-small view-btn" data-view="number" title="显示颜色编号">编号模式</button>
+              </div>
+              <button class="btn btn-small" id="brushToggleBtn" disabled title="选择编号颜色后在画布上点选/拖拽改色">✏️ 画笔修改</button>
+              <div class="zoom-controls">
+                <button class="btn btn-small" id="zoomInBtn">放大</button>
+                <button class="btn btn-small" id="zoomOutBtn">缩小</button>
+                <span id="zoomLevel">100%</span>
+              </div>
+            </div>
+
+            <!-- 画笔工具：编号调色板 + 笔刷大小 -->
+            <div class="brush-tool hidden" id="brushTool">
+              <div class="brush-tool-head">
+                <span class="brush-tool-title">画笔 · 选择颜色后在小图上点选或拖拽</span>
+                <label class="brush-size">
+                  笔刷
+                  <select id="brushSize">
+                    <option value="1" selected>1×1</option>
+                    <option value="2">3×3</option>
+                    <option value="3">5×5</option>
+                  </select>
+                </label>
+              </div>
+              <div class="brush-palette" id="brushPalette"></div>
+              <p class="brush-hint">提示：编号与右侧「颜色统计」一致；修改会自动保存并同步到导出文件，可用「回退」撤销。</p>
+            </div>
+
+            <div class="matrix-summary" id="matrixSummary"></div>
+          </div>
+        </div>
+
+        <!-- 可折叠右侧侧边栏：原图 + 参数 + 统计 -->
+        <aside class="side-panel" id="sidePanel">
+          <!-- 原图 -->
+          <div class="preview-panel">
+            <h3>原图</h3>
+            <div class="image-wrapper">
+              <img id="originalImage" alt="原图预览">
+            </div>
+          </div>
+
+          <!-- 参数设置 -->
+          <div class="control-panel">
+            <h3>参数设置</h3>
+            <div class="control-grid">
+              <div class="control-item">
+                <label>网格尺寸（拼豆数量）</label>
+                <div class="grid-presets">
+                  <button class="btn btn-small preset-btn" data-gw="32" data-gh="32">32×32</button>
+                  <button class="btn btn-small preset-btn active" data-gw="64" data-gh="64">64×64</button>
+                  <button class="btn btn-small preset-btn" data-gw="100" data-gh="100">100×100</button>
+                </div>
+                <div class="grid-custom">
+                  <input type="number" id="gridWidth" min="8" max="250" value="64" title="网格宽（列数）">
+                  <span>×</span>
+                  <input type="number" id="gridHeight" min="8" max="250" value="64" title="网格高（行数）">
+                </div>
+              </div>
+              <div class="control-item">
+                <label>拼豆规格</label>
+                <select id="beadSizeMm">
+                  <option value="5" selected>标准 5mm</option>
+                  <option value="2.6">迷你 2.6mm</option>
+                  <option value="3.6">MIDI 3.6mm</option>
+                </select>
+                <span class="control-hint" id="physicalSizeHint"></span>
+              </div>
+              <div class="control-item">
+                <label>颜色数量（真实拼豆色）</label>
+                <select id="colorLimit">
+                  <option value="auto" selected>自动</option>
+                  <option value="16">16 色</option>
+                  <option value="24">24 色</option>
+                  <option value="32">32 色</option>
+                  <option value="48">48 色</option>
+                  <option value="64">64 色</option>
+                  <option value="all">全部色板</option>
+                </select>
+              </div>
+              <div class="control-item">
+                <label>抖动</label>
+                <select id="dithering">
+                  <option value="none">无抖动</option>
+                  <option value="light" selected>轻度抖动（推荐）</option>
+                  <option value="standard">标准抖动</option>
+                </select>
+              </div>
+              <div class="control-item">
+                <label>适应方式</label>
+                <select id="fitMode">
+                  <option value="contain" selected>保持比例 · 居中留白</option>
+                  <option value="cover">自动裁剪 · 填满网格</option>
+                  <option value="stretch">拉伸填满</option>
+                </select>
+              </div>
+              <div class="control-item">
+                <label>留白背景色</label>
+                <input type="color" id="backgroundColor" value="#FFFFFF">
+              </div>
+              <div class="control-item">
+                <label>拼豆品牌</label>
+                <select id="beadBrand">
+                  <option value="perler" selected>Perler（50 色）</option>
+                  <option value="artkal">Artkal（40 色）</option>
+                  <option value="hama">Hama（30 色）</option>
+                </select>
+              </div>
+              <div class="control-item">
+                <label>细节优先</label>
+                <select id="detailPriority">
+                  <option value="true" selected>开启（保护轮廓/五官）</option>
+                  <option value="false">关闭（颜色更少）</option>
+                </select>
+              </div>
+            </div>
+            <div class="process-actions">
+              <button class="btn btn-primary btn-large" id="processBtn">生成拼豆图</button>
+              <button class="btn btn-outline btn-large" id="goExportBtn" disabled>前往导出 →</button>
+            </div>
+          </div>
+
+          <!-- 颜色统计 -->
+          <div id="colorStats" class="color-stats hidden">
+            <h3>颜色统计</h3>
+            <div id="colorList" class="color-list"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 导出区域 -->
+    <section id="export-section" class="section hidden">
+      <div class="preview-toolbar">
+        <button class="btn btn-ghost btn-small" id="backToPreviewBtn">← 返回调整参数</button>
+      </div>
+      <div class="export-panel">
+        <h3>导出</h3>
+        <div class="export-options">
+          <div class="export-option">
+            <h4>导出 PNG</h4>
+            <p>基于拼豆矩阵渲染，支持拼豆/像素两种风格</p>
+            <div class="option-controls">
+              <label>风格
+                <select id="exportStyle">
+                  <option value="bead" selected>拼豆风格</option>
+                  <option value="pixel">像素风格</option>
+                </select>
+              </label>
+              <label>
+                <input type="checkbox" id="exportGrid" checked>
+                显示网格
+              </label>
+              <label>
+                <input type="checkbox" id="exportNumbers">
+                显示编号
+              </label>
+              <label>
+                每豆像素
+                <input type="number" id="exportScale" min="4" max="40" value="14">
+              </label>
+            </div>
+            <button class="btn btn-primary" id="exportPNGBtn">导出 PNG</button>
+          </div>
+
+          <div class="export-option">
+            <h4>导出 PDF 图纸</h4>
+            <p>拼豆图纸：编号网格 + 颜色清单 + 数量统计</p>
+            <div class="option-controls">
+              <label>
+                <input type="checkbox" id="pdfGrid" checked>
+                显示网格
+              </label>
+              <label>
+                <input type="checkbox" id="pdfNumbers" checked>
+                显示编号
+              </label>
+              <label>
+                <input type="checkbox" id="pdfSplit">
+                大图分页（格子更大更易读）
+              </label>
+              <label>
+                页面大小
+                <select id="pdfPageSize">
+                  <option value="A4">A4</option>
+                  <option value="Letter">Letter</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn btn-primary" id="exportPDFBtn">导出 PDF</button>
+          </div>
+
+          <div class="export-option">
+            <h4>导出 CSV</h4>
+            <p>颜色清单（色号/名称/数量）+ 图纸网格</p>
+            <div class="option-controls">
+              <label>
+                <input type="checkbox" id="csvGrid" checked>
+                包含图纸网格
+              </label>
+            </div>
+            <button class="btn btn-primary" id="exportCSVBtn">导出 CSV</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <span>BeadPixel · 一个格子 = 一颗拼豆</span>
+    <div class="footer-links">
+      <button class="help-link" id="historyOpenBtn">🕘 历史记录</button>
+      <button class="help-link" id="helpOpenBtn">使用说明</button>
+    </div>
+  </footer>
+
+  <!-- 历史记录弹窗 -->
+  <div id="historyModal" class="modal-overlay hidden">
+    <div class="modal history-modal">
+      <div class="modal-header">
+        <h3>历史记录</h3>
+        <button class="modal-close" id="historyCloseBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-list" id="historyList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 帮助弹窗 -->
+  <div id="helpModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>使用说明</h3>
+        <button class="modal-close" id="helpCloseBtn">✕</button>
+      </div>
+      <div class="modal-body help-content">
+        <h4>1. 上传图片</h4>
+        <p>拖拽或点击上传区域，选择一张图片（支持 JPG、PNG、WebP 格式）。</p>
+
+        <h4>2. 调整参数</h4>
+        <ul>
+          <li><strong>网格尺寸：</strong>最终拼豆数量（如 64×64 = 4096 颗），生成结果严格等于该网格</li>
+          <li><strong>拼豆规格：</strong>5mm 标准豆 / 2.6mm 迷你豆，影响图纸上的实际尺寸</li>
+          <li><strong>颜色数量：</strong>最多使用多少种真实拼豆颜色（自动 = 按覆盖率智能选择）</li>
+          <li><strong>抖动：</strong>轻度抖动让渐变更自然且不产生噪点；标准抖动渐变最强</li>
+          <li><strong>适应方式：</strong>保持比例留白 / 自动裁剪填满 / 拉伸</li>
+          <li><strong>细节优先：</strong>保护轮廓、五官、文字等高对比区域</li>
+          <li><strong>拼豆品牌：</strong>Perler / Artkal / Hama 真实色板</li>
+        </ul>
+
+        <h4>3. 生成拼豆图</h4>
+        <p>点击"生成拼豆图"，算法会对每个格子做智能采样（区域平均 + 中心加权 + 主导色 + 边缘保护），再从真实拼豆色板中选择最接近的颜色。</p>
+
+        <h4>4. 四种视图模式</h4>
+        <ul>
+          <li><strong>拼豆模式：</strong>真实拼豆视觉（圆豆、孔、高光、阴影）</li>
+          <li><strong>图片模式：</strong>纯色像素图</li>
+          <li><strong>网格模式：</strong>网格线 + 每 10 格参考线</li>
+          <li><strong>编号模式：</strong>每格显示颜色编号（放大后可读）</li>
+        </ul>
+
+        <h4>5. 导出结果</h4>
+        <ul>
+          <li><strong>PNG：</strong>拼豆/像素风格图片（可在「显示编号」中叠加每格颜色编号）</li>
+          <li><strong>PDF：</strong>可制作的拼豆图纸（编号 + 颜色清单 + 数量）</li>
+          <li><strong>CSV：</strong>颜色清单和图纸网格数据</li>
+        </ul>
+
+        <h4>6. 画笔修改细节</h4>
+        <p>生成后点击 <strong>✏️ 画笔修改</strong>，从带编号的调色板选一种颜色，再在小图上<strong>点选或拖拽</strong>即可改色。每种颜色都有编号（与右侧「颜色统计」一致），方便区分。修改会<strong>自动保存</strong>并同步到导出的 PNG / PDF / CSV。</p>
+
+        <h4>7. 历史记录</h4>
+        <p>每次生成都会自动保留在<strong>🕘 历史记录</strong>中（缩略图 + 参数 + 时间）。可<strong>加载</strong>回到预览/导出、<strong>重命名</strong>或<strong>删除</strong>（删除会同时清理对应文件）。
+      </div>
+    </div>
+  </div>
+
+  <!-- 加载遮罩 -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-spinner"></div>
+    <p>处理中...</p>
+  </div>
+
+  <!-- 提示消息 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- 引入 JavaScript -->
+  <script src="js/uploader.js"></script>
+  <script src="js/preview.js"></script>
+  <script src="js/colorPanel.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
